@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Store Link - POS & Management</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="store-brand">STORE LINK</div>
+      <nav class="nav-menu">
+        <a class="nav-item active" data-page="pos" href="#">Point of Sale</a>
+        <a class="nav-item" data-page="sales" href="#">Sales History</a>
+        <a class="nav-item" data-page="products" href="#">Products</a>
+        <a class="nav-item" data-page="inventory" href="#">Inventory</a>
+        <a class="nav-item" data-page="customers" href="#">Customers</a>
+        <a class="nav-item" data-page="settings" href="#">Settings</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <header class="topbar">
+        <h1 class="page-title">Point of Sale</h1>
+        <div class="search-box">
+          <input type="text" id="search" placeholder="Search products...">
+        </div>
+      </header>
+      
+      <!-- POS Terminal View -->
+      <section id="pos" class="view-panel pos-container">
+        <div class="product-grid" id="productGrid"></div>
+        <div class="cart-section">
+          <h2>Current Order</h2>
+          <div class="customer-toggle-box">
+            <label><input type="checkbox" id="enableCustomer"> Add Customer Info (Optional)</label>
+            <div id="customerFields" style="display: none; margin-top: 8px;">
+              <input type="text" id="custName" placeholder="Customer Name">
+              <input type="text" id="custPhone" placeholder="Phone Number (Unique ID)">
+            </div>
+          </div>
+          <div class="cart-items" id="cartItems">
+            <p class="empty-cart">Cart is currently empty</p>
+          </div>
+          <div class="cart-summary">
+            <div id="discountRow" style="display: none; font-size: 13px; color: #2e7d32; margin-bottom: 5px;">2% Returning Customer Discount Applied!</div>
+            <div class="total-row"><span>Total:</span> <span id="cartTotal">$0.00</span></div>
+            <button id="checkoutBtn" class="neo-btn checkout-btn">Charge / Checkout</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sales History View -->
+      <section id="sales" class="view-panel" style="display: none;">
+        <div class="table-container">
+          <h2>Sales Records & Transactions Log</h2>
+          <table class="data-table">
+            <thead>
+              <tr><th>Receipt ID</th><th>Date & Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Total</th></tr>
+            </thead>
+            <tbody id="salesTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Products View -->
+      <section id="products" class="view-panel" style="display: none;">
+        <div class="table-container">
+          <h2>Products Catalog</h2>
+          <table class="data-table">
+            <thead>
+              <tr><th>Product Name</th><th>SKU</th><th>Price</th><th>Stock</th></tr>
+            </thead>
+            <tbody id="productsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Inventory View -->
+      <section id="inventory" class="view-panel" style="display: none;">
+        <div class="table-container">
+          <h2>Inventory & Stock Control</h2>
+          <div class="inventory-form">
+            <input type="text" id="itemName" placeholder="Product Name (New)">
+            <input type="text" id="itemSku" placeholder="SKU Code">
+            <input type="number" id="itemPrice" placeholder="Price ($)">
+            <input type="number" id="actualStock" placeholder="Actual Qty">
+            <input type="number" id="displayedStock" placeholder="Display Qty">
+            <button id="addItemBtn" class="neo-btn">Save / Update</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr><th>Item Name</th><th>SKU</th><th>Price</th><th>Actual Qty</th><th>Display Qty</th><th>Status</th></tr>
+            </thead>
+            <tbody id="inventoryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Customers View -->
+      <section id="customers" class="view-panel" style="display: none;">
+        <div class="table-container">
+          <h2>Customer Directory</h2>
+          <table class="data-table">
+            <thead>
+              <tr><th>Customer Name</th><th>Phone (ID)</th><th>Total Orders</th></tr>
+            </thead>
+            <tbody id="customersTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Settings View -->
+      <section id="settings" class="view-panel" style="display: none;">
+        <div class="settings-container"><h2>System Settings</h2></div>
+      </section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
