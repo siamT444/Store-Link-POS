@@ -1,296 +1,307 @@
-let products = [
-  { name: 'Cold Milk Latte', sku: 'SKU-001', price: 4.75, actual: 45, display: 45 },
-  { name: 'Avocado Toast', sku: 'SKU-002', price: 8.50, actual: 30, display: 30 },
-  { name: 'Butter Croissant', sku: 'SKU-003', price: 3.50, actual: 25, display: 25 },
-  { name: 'Iced Matcha Latte', sku: 'SKU-004', price: 5.25, actual: 40, display: 40 }
-];
+// --- 1. Initialization & Defaults ---
+if (!localStorage.getItem('users')) {
+    const defaultUsers = [{ username: 'admin', password: '123', role: 'admin' }];
+    localStorage.setItem('users', JSON.stringify(defaultUsers));
+}
+if (!localStorage.getItem('products')) {
+    localStorage.setItem('products', JSON.stringify([]));
+}
+if (!localStorage.getItem('sales')) {
+    localStorage.setItem('sales', JSON.stringify([]));
+}
+if (!localStorage.getItem('customers')) {
+    localStorage.setItem('customers', JSON.stringify([])); // For loyalty
+}
 
 let cart = [];
-let salesHistory = [];
-let customers = [
-  { name: 'John Doe', phone: '01700000000', orders: 1 }
-];
 
-document.addEventListener('DOMContentLoaded', () => {
-  const navItems = document.querySelectorAll('.nav-item');
-  const viewPanels = document.querySelectorAll('.view-panel');
-  const pageTitle = document.querySelector('.page-title');
-  
-  const productGrid = document.getElementById('productGrid');
-  const productsTableBody = document.getElementById('productsTableBody');
-  const inventoryTableBody = document.getElementById('inventoryTableBody');
-  const salesTableBody = document.getElementById('salesTableBody');
-  const customersTableBody = document.getElementById('customersTableBody');
-  
-  const cartItemsContainer = document.getElementById('cartItems');
-  const cartTotalElement = document.getElementById('cartTotal');
-  const checkoutBtn = document.getElementById('checkoutBtn');
+// --- 2. Authentication & Role Management ---
+function handleLogin() {
+    const userIn = document.getElementById('username').value;
+    const passIn = document.getElementById('password').value;
+    const users = JSON.parse(localStorage.getItem('users'));
 
-  const enableCustomerCheckbox = document.getElementById('enableCustomer');
-  const customerFields = document.getElementById('customerFields');
-  const custNameInput = document.getElementById('custName');
-  const custPhoneInput = document.getElementById('custPhone');
-  const discountRow = document.getElementById('discountRow');
+    const validUser = users.find(u => u.username === userIn && u.password === passIn);
 
-  enableCustomerCheckbox.addEventListener('change', () => {
-    customerFields.style.display = enableCustomerCheckbox.checked ? 'block' : 'none';
-    if(!enableCustomerCheckbox.checked) {
-      custPhoneInput.value = '';
-      renderCart();
-    }
-  });
-
-  custPhoneInput.addEventListener('input', () => {
-    renderCart();
-  });
-
-  const itemNameInput = document.getElementById('itemName');
-  const itemSkuInput = document.getElementById('itemSku');
-  const itemPriceInput = document.getElementById('itemPrice');
-  const actualStockInput = document.getElementById('actualStock');
-  const displayedStockInput = document.getElementById('displayedStock');
-  const addItemBtn = document.getElementById('addItemBtn');
-
-  function renderAll() {
-    productGrid.innerHTML = '';
-    products.forEach((p, index) => {
-      const card = document.createElement('div');
-      card.className = 'product-card';
-      card.innerHTML = `
-        <div class="product-name">${p.name}</div>
-        <div class="product-price">$${p.price.toFixed(2)}</div>
-      `;
-      card.addEventListener('click', () => addToCart(index));
-      productGrid.appendChild(card);
-    });
-
-    productsTableBody.innerHTML = '';
-    products.forEach(p => {
-      const row = document.createElement('tr');
-      row.innerHTML = `<td>${p.name}</td><td>${p.sku}</td><td>$${p.price.toFixed(2)}</td><td>${p.display}</td>`;
-      productsTableBody.appendChild(row);
-    });
-
-    inventoryTableBody.innerHTML = '';
-    products.forEach(p => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${p.name}</td>
-        <td>${p.sku}</td>
-        <td>$${p.price.toFixed(2)}</td>
-        <td>${p.actual}</td>
-        <td>${p.display}</td>
-        <td><span class="badge in-stock">${p.display > 0 ? 'In Stock' : 'Out of Stock'}</span></td>
-      `;
-      inventoryTableBody.appendChild(row);
-    });
-
-    salesTableBody.innerHTML = '';
-    salesHistory.forEach(s => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${s.receipt}</td>
-        <td>${s.date}</td>
-        <td>${s.cashier}</td>
-        <td>${s.customer}</td>
-        <td>${s.items}</td>
-        <td>${s.total}</td>
-      `;
-      salesTableBody.appendChild(row);
-    });
-
-    customersTableBody.innerHTML = '';
-    customers.forEach(c => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${c.name}</td>
-        <td>${c.phone}</td>
-        <td>${c.orders}</td>
-      `;
-      customersTableBody.appendChild(row);
-    });
-  }
-
-  function addToCart(index) {
-    const product = products[index];
-    const existing = cart.find(item => item.sku === product.sku);
-    if (existing) {
-      existing.qty += 1;
+    if (validUser) {
+        localStorage.setItem('currentUser', JSON.stringify(validUser));
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+        
+        document.getElementById('current-user-display').innerText = `${validUser.username} (${validUser.role})`;
+        
+        applyRoleRestrictions(validUser.role);
+        
+        // Load initial data
+        renderProducts();
+        renderInventory();
+        renderSalesHistory();
     } else {
-      cart.push({ ...product, qty: 1 });
+        alert("Invalid Username or Password!");
+    }
+}
+
+function handleLogout() {
+    localStorage.removeItem('currentUser');
+    window.location.reload();
+}
+
+function applyRoleRestrictions(role) {
+    const navInventory = document.getElementById('nav-inventory');
+    const settingsContent = document.getElementById('settings-content');
+
+    if (role === 'cashier') {
+        navInventory.style.display = 'none'; // Hide inventory from cashier
+        settingsContent.innerHTML = '<h2 style="color: red; text-align: center;">No Access. Restricted to Admin.</h2>';
+    } else if (role === 'admin') {
+        navInventory.style.display = 'inline-block';
+        renderAdminSettings();
+    }
+}
+
+// Check auto-login on page refresh
+window.onload = () => {
+    const activeUser = JSON.parse(localStorage.getItem('currentUser'));
+    if (activeUser) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+        document.getElementById('current-user-display').innerText = `${activeUser.username} (${activeUser.role})`;
+        applyRoleRestrictions(activeUser.role);
+        renderProducts();
+        renderInventory();
+        renderSalesHistory();
+    }
+};
+
+// --- 3. Navigation ---
+function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+}
+
+// --- 4. Admin Settings (Add Cashier) ---
+function renderAdminSettings() {
+    const settingsContent = document.getElementById('settings-content');
+    settingsContent.innerHTML = `
+        <h3>Add New Cashier</h3>
+        <input type="text" id="new-cashier-name" placeholder="Cashier Username">
+        <input type="password" id="new-cashier-pass" placeholder="Password">
+        <button onclick="addCashier()">Assign Cashier</button>
+    `;
+}
+
+function addCashier() {
+    const name = document.getElementById('new-cashier-name').value;
+    const pass = document.getElementById('new-cashier-pass').value;
+    
+    if(name && pass) {
+        const users = JSON.parse(localStorage.getItem('users'));
+        // Check if exists
+        if(users.find(u => u.username === name)) {
+            alert("User already exists!");
+            return;
+        }
+        users.push({ username: name, password: pass, role: 'cashier' });
+        localStorage.setItem('users', JSON.stringify(users));
+        alert("New Cashier added successfully!");
+        document.getElementById('new-cashier-name').value = '';
+        document.getElementById('new-cashier-pass').value = '';
+    }
+}
+
+// --- 5. Inventory Management ---
+function addProduct() {
+    const sku = document.getElementById('prod-sku').value;
+    const name = document.getElementById('prod-name').value;
+    const price = parseFloat(document.getElementById('prod-price').value);
+    const stock = parseInt(document.getElementById('prod-stock').value);
+
+    if (sku && name && price > 0 && stock >= 0) {
+        let products = JSON.parse(localStorage.getItem('products'));
+        const existingIndex = products.findIndex(p => p.sku === sku);
+
+        if (existingIndex > -1) {
+            products[existingIndex] = { sku, name, price, stock }; // Update
+        } else {
+            products.push({ sku, name, price, stock }); // Add new
+        }
+
+        localStorage.setItem('products', JSON.stringify(products));
+        alert("Product saved!");
+        renderInventory();
+        renderProducts(); // Update POS grid
+    } else {
+        alert("Please fill all valid details.");
+    }
+}
+
+function renderInventory() {
+    const products = JSON.parse(localStorage.getItem('products'));
+    const list = document.getElementById('inventory-list');
+    list.innerHTML = products.map(p => `
+        <div class="neomorphic-card">
+            <strong>${p.name}</strong> (SKU: ${p.sku}) <br>
+            Price: ৳${p.price} | Stock: ${p.stock}
+        </div>
+    `).join('');
+}
+
+// --- 6. POS & Shopping Cart ---
+function renderProducts() {
+    const products = JSON.parse(localStorage.getItem('products'));
+    const list = document.getElementById('product-list');
+    list.innerHTML = products.map(p => `
+        <div class="neomorphic-card product-item" onclick="addToCart('${p.sku}')">
+            <h4>${p.name}</h4>
+            <p>৳${p.price}</p>
+            <small>Stock: ${p.stock}</small>
+        </div>
+    `).join('');
+}
+
+function addToCart(sku) {
+    const products = JSON.parse(localStorage.getItem('products'));
+    const product = products.find(p => p.sku === sku);
+    
+    if (product.stock <= 0) {
+        alert("Out of stock!");
+        return;
+    }
+
+    const cartItem = cart.find(item => item.sku === sku);
+    if (cartItem) {
+        if(cartItem.qty < product.stock) {
+            cartItem.qty++;
+        } else {
+            alert("Maximum stock reached!");
+        }
+    } else {
+        cart.push({ ...product, qty: 1 });
     }
     renderCart();
-  }
+}
 
-  window.changeQty = function(sku, delta) {
+function updateQty(sku, change) {
     const item = cart.find(i => i.sku === sku);
+    const products = JSON.parse(localStorage.getItem('products'));
+    const product = products.find(p => p.sku === sku);
+
     if (item) {
-      item.qty += delta;
-      if (item.qty <= 0) {
-        cart = cart.filter(i => i.sku !== sku);
-      }
+        item.qty += change;
+        if (item.qty <= 0) {
+            cart = cart.filter(i => i.sku !== sku);
+        } else if (item.qty > product.stock) {
+            item.qty = product.stock;
+            alert("Maximum stock reached!");
+        }
     }
     renderCart();
-  }
+}
 
-  window.removeFromCart = function(sku) {
-    cart = cart.filter(i => i.sku !== sku);
-    renderCart();
-  }
-
-  function renderCart() {
-    if (cart.length === 0) {
-      cartItemsContainer.innerHTML = `<p class="empty-cart">Cart is currently empty</p>`;
-      cartTotalElement.textContent = '$0.00';
-      discountRow.style.display = 'none';
-      return;
-    }
-
-    cartItemsContainer.innerHTML = '';
+function renderCart() {
+    const cartDiv = document.getElementById('cart-items');
     let subtotal = 0;
 
-    cart.forEach(item => {
-      const itemTotal = item.price * item.qty;
-      subtotal += itemTotal;
-      const div = document.createElement('div');
-      div.className = 'cart-item';
-      div.innerHTML = `
-        <div>
-          <div>${item.name}</div>
-          <div style="font-size: 11px; color: #666;">$${item.price.toFixed(2)} x ${item.qty}</div>
+    cartDiv.innerHTML = cart.map(item => {
+        subtotal += item.price * item.qty;
+        return `
+        <div class="cart-item">
+            <span>${item.name} (x${item.qty})</span>
+            <span>৳${item.price * item.qty}</span>
+            <div>
+                <button onclick="updateQty('${item.sku}', 1)">+</button>
+                <button onclick="updateQty('${item.sku}', -1)">-</button>
+            </div>
         </div>
-        <div class="cart-item-controls">
-          <button class="qty-btn" onclick="changeQty('${item.sku}', -1)">-</button>
-          <span>${item.qty}</span>
-          <button class="qty-btn" onclick="changeQty('${item.sku}', 1)">+</button>
-          <button class="remove-btn" onclick="removeFromCart('${item.sku}')">X</button>
-        </div>
-      `;
-      cartItemsContainer.appendChild(div);
-    });
+    `}).join('');
 
-    let finalTotal = subtotal;
-    const phone = custPhoneInput.value.trim();
-    let hasDiscount = false;
+    document.getElementById('subtotal').innerText = subtotal;
+    calculateTotal(subtotal);
+}
 
-    if (enableCustomerCheckbox.checked && phone) {
-      const foundCust = customers.find(c => c.phone === phone);
-      if (foundCust) {
-        finalTotal = subtotal * 0.98; // 2% discount
-        hasDiscount = true;
-      }
+function calculateTotal(subtotal) {
+    const phone = document.getElementById('customer-phone').value;
+    const customers = JSON.parse(localStorage.getItem('customers'));
+    let discount = 0;
+
+    // Apply 2% discount for returning customers
+    if (phone && customers.includes(phone)) {
+        discount = subtotal * 0.02; 
     }
+    
+    const total = subtotal - discount;
+    document.getElementById('discount').innerText = discount.toFixed(2);
+    document.getElementById('total-amount').innerText = total.toFixed(2);
+}
 
-    if (hasDiscount) {
-      discountRow.style.display = 'block';
-    } else {
-      discountRow.style.display = 'none';
-    }
-
-    cartTotalElement.textContent = `$${finalTotal.toFixed(2)}`;
-  }
-
-  checkoutBtn.addEventListener('click', () => {
-    if (cart.length === 0) {
-      alert('Cart is empty!');
-      return;
-    }
-
-    let customerInfo = 'Walk-in Customer';
-    if (enableCustomerCheckbox.checked) {
-      const cName = custNameInput.value.trim() || 'Guest';
-      const cPhone = custPhoneInput.value.trim();
-
-      if (cPhone) {
-        customerInfo = `${cName} (${cPhone})`;
-        const existingCust = customers.find(c => c.phone === cPhone);
-        if (existingCust) {
-          existingCust.orders += 1;
-          if(cName !== 'Guest') existingCust.name = cName;
-        } else {
-          customers.push({ name: cName, phone: cPhone, orders: 1 });
-        }
-      }
-    }
-
-    const totalStr = cartTotalElement.textContent;
-    const itemsSummary = cart.map(i => `${i.name} (x${i.qty})`).join(', ');
-    const now = new Date();
-    const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const receiptId = '#SL-' + Math.floor(10000000 + Math.random() * 90000000);
-
-    salesHistory.unshift({
-      receipt: receiptId,
-      date: dateStr,
-      cashier: 'Alex Rivera',
-      customer: customerInfo,
-      items: itemsSummary,
-      total: totalStr
-    });
-
-    alert('Checkout successful! Total: ' + totalStr);
-    cart = [];
-    enableCustomerCheckbox.checked = false;
-    customerFields.style.display = 'none';
-    custNameInput.value = '';
-    custPhoneInput.value = '';
-    renderCart();
-    renderAll();
-  });
-
-  renderAll();
-
-  addItemBtn.addEventListener('click', () => {
-    const name = itemNameInput.value.trim();
-    const sku = itemSkuInput.value.trim();
-    const price = parseFloat(itemPriceInput.value);
-    const actual = parseInt(actualStockInput.value);
-    const display = parseInt(displayedStockInput.value);
-
-    if (sku) {
-      const existingProduct = products.find(p => p.sku === sku);
-
-      if (existingProduct) {
-        if (name) existingProduct.name = name;
-        if (!isNaN(price)) existingProduct.price = price;
-        if (!isNaN(actual)) existingProduct.actual = actual;
-        if (!isNaN(display)) existingProduct.display = display;
-      } else {
-        if (name && !isNaN(price) && !isNaN(actual) && !isNaN(display)) {
-          products.push({ name, sku, price, actual, display });
-        } else {
-          alert('Please fill all fields for a new product.');
-          return;
-        }
-      }
-
-      renderAll();
-      itemNameInput.value = '';
-      itemSkuInput.value = '';
-      itemPriceInput.value = '';
-      actualStockInput.value = '';
-      displayedStockInput.value = '';
-    } else {
-      alert('SKU Code is required!');
-    }
-  });
-
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      e.preventDefault();
-      navItems.forEach(nav => nav.classList.remove('active'));
-      item.classList.add('active');
-
-      const targetPage = item.getAttribute('data-page');
-      pageTitle.textContent = item.textContent;
-
-      viewPanels.forEach(panel => {
-        if (panel.id === targetPage) {
-          panel.style.display = 'block';
-        } else {
-          panel.style.display = 'none';
-        }
-      });
-    });
-  });
+// Listen to phone input to calculate discount dynamically
+document.getElementById('customer-phone').addEventListener('input', () => {
+    const subtotal = parseFloat(document.getElementById('subtotal').innerText);
+    calculateTotal(subtotal);
 });
+
+// --- 7. Checkout & Sales History ---
+function processCheckout() {
+    if (cart.length === 0) return alert("Cart is empty!");
+
+    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    const phone = document.getElementById('customer-phone').value;
+    const total = parseFloat(document.getElementById('total-amount').innerText);
+    const now = new Date();
+    
+    // Save new customer for future discount
+    let customers = JSON.parse(localStorage.getItem('customers'));
+    if (phone && !customers.includes(phone)) {
+        customers.push(phone);
+        localStorage.setItem('customers', JSON.stringify(customers));
+    }
+
+    // Update Inventory Stock
+    let products = JSON.parse(localStorage.getItem('products'));
+    cart.forEach(cartItem => {
+        let prod = products.find(p => p.sku === cartItem.sku);
+        if (prod) prod.stock -= cartItem.qty;
+    });
+    localStorage.setItem('products', JSON.stringify(products));
+
+    // Log Sale Data
+    const newSale = {
+        id: 'INV-' + Math.floor(Math.random() * 10000),
+        items: cart,
+        totalAmount: total,
+        soldBy: currentUser.username,  
+        role: currentUser.role,        
+        time: now.toLocaleDateString() + " " + now.toLocaleTimeString(),
+        customerPhone: phone || 'Walk-in'
+    };
+
+    let sales = JSON.parse(localStorage.getItem('sales'));
+    sales.push(newSale);
+    localStorage.setItem('sales', JSON.stringify(sales));
+
+    // Reset UI
+    alert(`Checkout Successful! Total: ৳${total}\nSold by: ${currentUser.username}`);
+    cart = [];
+    document.getElementById('customer-phone').value = '';
+    renderCart();
+    renderProducts();
+    renderInventory();
+    renderSalesHistory();
+}
+
+function renderSalesHistory() {
+    const sales = JSON.parse(localStorage.getItem('sales'));
+    const list = document.getElementById('sales-history-list');
+    
+    // Reverse to show latest first
+    list.innerHTML = sales.slice().reverse().map(sale => `
+        <div class="neomorphic-card history-card">
+            <h4>Invoice: ${sale.id}</h4>
+            <p><strong>Total:</strong> ৳${sale.totalAmount} | <strong>Customer:</strong> ${sale.customerPhone}</p>
+            <p><strong>Sold By:</strong> ${sale.soldBy} (${sale.role})</p>
+            <p><strong>Time:</strong> ${sale.time}</p>
+            <hr>
+            <small>Items: ${sale.items.map(i => `${i.name} (x${i.qty})`).join(', ')}</small>
+        </div>
+    `).join('');
+}
