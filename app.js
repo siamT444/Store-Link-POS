@@ -10,7 +10,7 @@ if (!localStorage.getItem('sales')) {
     localStorage.setItem('sales', JSON.stringify([]));
 }
 if (!localStorage.getItem('customers')) {
-    localStorage.setItem('customers', JSON.stringify([])); // For loyalty
+    localStorage.setItem('customers', JSON.stringify([]));
 }
 
 let cart = [];
@@ -32,7 +32,6 @@ function handleLogin() {
         
         applyRoleRestrictions(validUser.role);
         
-        // Load initial data
         renderProducts();
         renderInventory();
         renderSalesHistory();
@@ -51,15 +50,14 @@ function applyRoleRestrictions(role) {
     const settingsContent = document.getElementById('settings-content');
 
     if (role === 'cashier') {
-        navInventory.style.display = 'none'; // Hide inventory from cashier
-        settingsContent.innerHTML = '<h2 style="color: red; text-align: center;">No Access. Restricted to Admin.</h2>';
+        if(navInventory) navInventory.style.display = 'none';
+        settingsContent.innerHTML = '<h3 style="color: var(--danger-color); text-align: center;"><i class="fa-solid fa-lock"></i> Restricted Access (Admin Only)</h3>';
     } else if (role === 'admin') {
-        navInventory.style.display = 'inline-block';
+        if(navInventory) navInventory.style.display = 'inline-flex';
         renderAdminSettings();
     }
 }
 
-// Check auto-login on page refresh
 window.onload = () => {
     const activeUser = JSON.parse(localStorage.getItem('currentUser'));
     if (activeUser) {
@@ -73,20 +71,30 @@ window.onload = () => {
     }
 };
 
-// --- 3. Navigation ---
-function showTab(tabId) {
+// --- 3. Dynamic Navigation ---
+function showTab(tabId, btnElement) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    
     document.getElementById(tabId).classList.add('active');
+    if(btnElement) btnElement.classList.add('active');
 }
 
-// --- 4. Admin Settings (Add Cashier) ---
+// --- 4. Admin Settings ---
 function renderAdminSettings() {
     const settingsContent = document.getElementById('settings-content');
     settingsContent.innerHTML = `
-        <h3>Add New Cashier</h3>
-        <input type="text" id="new-cashier-name" placeholder="Cashier Username">
-        <input type="password" id="new-cashier-pass" placeholder="Password">
-        <button onclick="addCashier()">Assign Cashier</button>
+        <h3><i class="fa-solid fa-user-plus"></i> Add New Cashier</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Create accounts for cashiers with limited permissions.</p>
+        <div class="input-group">
+            <i class="fa-solid fa-user input-icon"></i>
+            <input type="text" id="new-cashier-name" placeholder="Cashier Username">
+        </div>
+        <div class="input-group">
+            <i class="fa-solid fa-key input-icon"></i>
+            <input type="password" id="new-cashier-pass" placeholder="Password">
+        </div>
+        <button class="btn-primary" onclick="addCashier()"><i class="fa-solid fa-check"></i> Assign Cashier</button>
     `;
 }
 
@@ -96,7 +104,6 @@ function addCashier() {
     
     if(name && pass) {
         const users = JSON.parse(localStorage.getItem('users'));
-        // Check if exists
         if(users.find(u => u.username === name)) {
             alert("User already exists!");
             return;
@@ -121,15 +128,20 @@ function addProduct() {
         const existingIndex = products.findIndex(p => p.sku === sku);
 
         if (existingIndex > -1) {
-            products[existingIndex] = { sku, name, price, stock }; // Update
+            products[existingIndex] = { sku, name, price, stock };
         } else {
-            products.push({ sku, name, price, stock }); // Add new
+            products.push({ sku, name, price, stock });
         }
 
         localStorage.setItem('products', JSON.stringify(products));
-        alert("Product saved!");
+        alert("Product saved successfully!");
         renderInventory();
-        renderProducts(); // Update POS grid
+        renderProducts();
+        
+        document.getElementById('prod-sku').value = '';
+        document.getElementById('prod-name').value = '';
+        document.getElementById('prod-price').value = '';
+        document.getElementById('prod-stock').value = '';
     } else {
         alert("Please fill all valid details.");
     }
@@ -139,9 +151,13 @@ function renderInventory() {
     const products = JSON.parse(localStorage.getItem('products'));
     const list = document.getElementById('inventory-list');
     list.innerHTML = products.map(p => `
-        <div class="neomorphic-card">
-            <strong>${p.name}</strong> (SKU: ${p.sku}) <br>
-            Price: ৳${p.price} | Stock: ${p.stock}
+        <div class="glass-card">
+            <h4 style="color: var(--accent-color);">${p.name}</h4>
+            <p style="font-size: 12px; color: var(--text-muted);">SKU: ${p.sku}</p>
+            <div style="display: flex; justify-content: space-between; margin-top: 10px; font-weight: 600;">
+                <span>৳${p.price}</span>
+                <span style="color: ${p.stock > 0 ? 'var(--success-color)' : 'var(--danger-color)'};">Stock: ${p.stock}</span>
+            </div>
         </div>
     `).join('');
 }
@@ -151,7 +167,7 @@ function renderProducts() {
     const products = JSON.parse(localStorage.getItem('products'));
     const list = document.getElementById('product-list');
     list.innerHTML = products.map(p => `
-        <div class="neomorphic-card product-item" onclick="addToCart('${p.sku}')">
+        <div class="product-item" onclick="addToCart('${p.sku}')">
             <h4>${p.name}</h4>
             <p>৳${p.price}</p>
             <small>Stock: ${p.stock}</small>
@@ -206,9 +222,12 @@ function renderCart() {
         subtotal += item.price * item.qty;
         return `
         <div class="cart-item">
-            <span>${item.name} (x${item.qty})</span>
-            <span>৳${item.price * item.qty}</span>
             <div>
+                <div><strong>${item.name}</strong></div>
+                <small style="color: var(--text-muted);">৳${item.price} x ${item.qty}</small>
+            </div>
+            <div class="cart-item-controls">
+                <span>৳${item.price * item.qty}</span>
                 <button onclick="updateQty('${item.sku}', 1)">+</button>
                 <button onclick="updateQty('${item.sku}', -1)">-</button>
             </div>
@@ -224,7 +243,6 @@ function calculateTotal(subtotal) {
     const customers = JSON.parse(localStorage.getItem('customers'));
     let discount = 0;
 
-    // Apply 2% discount for returning customers
     if (phone && customers.includes(phone)) {
         discount = subtotal * 0.02; 
     }
@@ -234,7 +252,6 @@ function calculateTotal(subtotal) {
     document.getElementById('total-amount').innerText = total.toFixed(2);
 }
 
-// Listen to phone input to calculate discount dynamically
 document.getElementById('customer-phone').addEventListener('input', () => {
     const subtotal = parseFloat(document.getElementById('subtotal').innerText);
     calculateTotal(subtotal);
@@ -249,14 +266,12 @@ function processCheckout() {
     const total = parseFloat(document.getElementById('total-amount').innerText);
     const now = new Date();
     
-    // Save new customer for future discount
     let customers = JSON.parse(localStorage.getItem('customers'));
     if (phone && !customers.includes(phone)) {
         customers.push(phone);
         localStorage.setItem('customers', JSON.stringify(customers));
     }
 
-    // Update Inventory Stock
     let products = JSON.parse(localStorage.getItem('products'));
     cart.forEach(cartItem => {
         let prod = products.find(p => p.sku === cartItem.sku);
@@ -264,7 +279,6 @@ function processCheckout() {
     });
     localStorage.setItem('products', JSON.stringify(products));
 
-    // Log Sale Data
     const newSale = {
         id: 'INV-' + Math.floor(Math.random() * 10000),
         items: cart,
@@ -279,7 +293,6 @@ function processCheckout() {
     sales.push(newSale);
     localStorage.setItem('sales', JSON.stringify(sales));
 
-    // Reset UI
     alert(`Checkout Successful! Total: ৳${total}\nSold by: ${currentUser.username}`);
     cart = [];
     document.getElementById('customer-phone').value = '';
@@ -293,15 +306,14 @@ function renderSalesHistory() {
     const sales = JSON.parse(localStorage.getItem('sales'));
     const list = document.getElementById('sales-history-list');
     
-    // Reverse to show latest first
     list.innerHTML = sales.slice().reverse().map(sale => `
-        <div class="neomorphic-card history-card">
+        <div class="glass-card history-card">
             <h4>Invoice: ${sale.id}</h4>
             <p><strong>Total:</strong> ৳${sale.totalAmount} | <strong>Customer:</strong> ${sale.customerPhone}</p>
             <p><strong>Sold By:</strong> ${sale.soldBy} (${sale.role})</p>
-            <p><strong>Time:</strong> ${sale.time}</p>
-            <hr>
-            <small>Items: ${sale.items.map(i => `${i.name} (x${i.qty})`).join(', ')}</small>
+            <p style="font-size: 12px; color: var(--text-muted);"><strong>Time:</strong> ${sale.time}</p>
+            <hr style="border: none; border-top: 1px solid var(--glass-border); margin: 8px 0;">
+            <small style="color: var(--text-muted);">Items: ${sale.items.map(i => `${i.name} (x${i.qty})`).join(', ')}</small>
         </div>
     `).join('');
 }
